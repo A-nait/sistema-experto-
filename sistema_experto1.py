@@ -1,77 +1,151 @@
 
-# FUNCION PARA CLASIFICAR GLUCOSA
-def clasificar_glucosa(glucosa):
-    # Regla 1: Azúcar baja
-    if glucosa < 70:
-        return "Baja"
-    
-    # Regla 2: Azúcar normal
-    elif 70 <= glucosa <= 100:
-        return "Normal"
-    
-    # Regla 3: Azúcar alta
-    else:
-        return "Alta"
+from clips import Environment
 
-# FUNCION PARA CLASIFICAR PRESION
-def clasificar_presion(sistolica, diastolica):
-    # Regla 1: Presión baja
-    if sistolica < 90 or diastolica < 60:
-        return "Baja"
-    
-    # Regla 2: Presión normal
-    elif 90 <= sistolica <= 120 and 60 <= diastolica <= 80:
-        return "Normal"
-    
-    # Regla 3: Presión alta
-    else:
-        return "Alta"
+# CREAR MOTOR DE INFERENCIA
+env = Environment()
 
-# FUNCION PARA GENERAR RECOMENDACION
+# DEFINIR BASE DE CONOCIMIENTOS (una por una)
 
-def generar_recomendacion(glucosa_estado, presion_estado):
-    
-    # Si todo está normal
-    if glucosa_estado == "Normal" and presion_estado == "Normal":
-        return "Sus niveles están dentro de los rangos normales. Mantenga hábitos saludables."
-    
-    # Si algún valor está alto
-    elif glucosa_estado == "Alta" or presion_estado == "Alta":
-        return "Se recomienda mejorar la alimentación, hacer ejercicio y consultar a un profesional de salud."
-    
-    # Si algún valor está bajo
-    elif glucosa_estado == "Baja" or presion_estado == "Baja":
-        return "Se recomienda monitoreo y consultar a un profesional si presenta síntomas."
-    
-    # Caso general
-    else:
-        return "Se recomienda control periódico de sus niveles."
+# Templates
+env.build("""
+(deftemplate persona
+    (slot nombre)
+    (slot edad)
+    (slot glucosa)
+    (slot sistolica)
+    (slot diastolica)
+)
+""")
 
+env.build("""
+(deftemplate clasificacion
+    (slot tipo)
+    (slot valor)
+)
+""")
 
+# REGLAS PARA GLUCOSA
 
-# PROGRAMA PRINCIPAL
+env.build("""
+(defrule glucosa-baja
+    (persona (glucosa ?g))
+    (test (< ?g 70))
+    =>
+    (assert (clasificacion (tipo glucosa) (valor Baja)))
+)
+""")
 
+env.build("""
+(defrule glucosa-normal
+    (persona (glucosa ?g))
+    (test (and (>= ?g 70) (<= ?g 100)))
+    =>
+    (assert (clasificacion (tipo glucosa) (valor Normal)))
+)
+""")
 
-print("=== SISTEMA EXPERTO DE SALUD BÁSICO ===")
+env.build("""
+(defrule glucosa-alta
+    (persona (glucosa ?g))
+    (test (> ?g 100))
+    =>
+    (assert (clasificacion (tipo glucosa) (valor Alta)))
+)
+""")
 
-# Entrada de datos
-edad = int(input("Ingrese su edad: "))
-nombre = str(input("Ingrese su nombre: "))
-glucosa = float(input("Ingrese su nivel de glucosa (mg/dL): "))
-sistolica = int(input("Ingrese su presión sistólica: "))
-diastolica = int(input("Ingrese su presión diastólica: "))
+# REGLAS PARA PRESION
 
-# Motor de inferencia (aplicación de reglas)
-estado_glucosa = clasificar_glucosa(glucosa)
-estado_presion = clasificar_presion(sistolica, diastolica)
+env.build("""
+(defrule presion-baja
+    (persona (sistolica ?s) (diastolica ?d))
+    (test (or (< ?s 90) (< ?d 60)))
+    =>
+    (assert (clasificacion (tipo presion) (valor Baja)))
+)
+""")
 
-# Generación de recomendación
-recomendacion = generar_recomendacion(estado_glucosa, estado_presion)
+env.build("""
+(defrule presion-normal
+    (persona (sistolica ?s) (diastolica ?d))
+    (test (and (>= ?s 90) (<= ?s 120)
+               (>= ?d 60) (<= ?d 80)))
+    =>
+    (assert (clasificacion (tipo presion) (valor Normal)))
+)
+""")
 
-# Salida del sistema experto
+env.build("""
+(defrule presion-alta
+    (persona (sistolica ?s) (diastolica ?d))
+    (test (or (> ?s 120) (> ?d 80)))
+    =>
+    (assert (clasificacion (tipo presion) (valor Alta)))
+)
+""")
+
+# REGLAS DE RECOMENDACION
+
+env.build("""
+(defrule recomendacion-normal
+    (clasificacion (tipo glucosa) (valor Normal))
+    (clasificacion (tipo presion) (valor Normal))
+    =>
+    (printout t "Recomendacion: Mantenga habitos saludables." crlf)
+)
+""")
+
+env.build("""
+(defrule recomendacion-alta
+    (or
+        (clasificacion (tipo glucosa) (valor Alta))
+        (clasificacion (tipo presion) (valor Alta))
+    )
+    =>
+    (printout t "Recomendacion: Mejore alimentacion, haga ejercicio y consulte profesional." crlf)
+)
+""")
+
+env.build("""
+(defrule recomendacion-baja
+    (or
+        (clasificacion (tipo glucosa) (valor Baja))
+        (clasificacion (tipo presion) (valor Baja))
+    )
+    =>
+    (printout t "Recomendacion: Monitoreo y consulte profesional si presenta sintomas." crlf)
+)
+""")
+
+# Reiniciar entorno
+env.reset()
+
+# INTERFAZ
+
+print("=== SISTEMA EXPERTO DE SALUD ===")
+
+nombre = input("Nombre: ")
+edad = int(input("Edad: "))
+glucosa = float(input("Glucosa (mg/dL): "))
+sistolica = int(input("Presión sistólica: "))
+diastolica = int(input("Presión diastólica: "))
+
+# Insertar hecho en memoria
+env.assert_string(f"""
+(persona
+    (nombre "{nombre}")
+    (edad {edad})
+    (glucosa {glucosa})
+    (sistolica {sistolica})
+    (diastolica {diastolica})
+)
+""")
+
+# Ejecutar motor de inferencia
+env.run()
+
+# MOSTRAR RESULTADOS
 print("\n=== RESULTADOS ===")
-print("Edad:", edad)
-print("Nombre:", nombre)
-print("Clasificación de Glucosa:", estado_glucosa)
-print("Clasificación de Presión Arterial:", estado_presion)
-print("Recomendación:", recomendacion)
+
+for fact in env.facts():
+    if fact.template.name == "clasificacion":
+        print(f"{fact['tipo'].capitalize()}: {fact['valor']}")
